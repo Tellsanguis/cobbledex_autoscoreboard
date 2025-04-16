@@ -8,6 +8,9 @@ CobbledexScoreboard est un mod Minecraft qui génère automatiquement une image 
 - Actualisation périodique des statistiques de capture
 - Interface accessible via un serveur web intégré
 - Configuration personnalisable
+- Affichage multi-colonnes pour les serveurs avec beaucoup de joueurs
+- Personnalisation complète des couleurs du tableau
+- Option pour masquer la date de dernière mise à jour
 
 ## 🚀 Installation
 1. Assurez-vous que le mod [Cobbledex](https://www.curseforge.com/minecraft/mc-mods/cobbledex) est installé sur votre serveur
@@ -25,7 +28,21 @@ Le fichier de configuration est automatiquement créé lors du premier démarrag
   "imageTitle": "Scoreboard - Pokémon Capturés",
   "timeZone": "Europe/Paris",
   "autoDetectDataFolder": true,
-  "manualDataFolderPath": ""
+  "manualDataFolderPath": "",
+  "maxPlayers": 100,
+  "rowsPerColumn": 10,
+  "showLastUpdate": true,
+  "colors": {
+    "background": "#141414",
+    "titleBackground": "#3232C8",
+    "titleText": "#FFFFFF",
+    "topPlayerText": "#FFFFFF",
+    "firstPlaceBackground": "#FFD700",
+    "secondPlaceBackground": "#C0C0C0",
+    "thirdPlaceBackground": "#CD7F32",
+    "text": "#FFFFFF",
+    "footerText": "#FFFF00"
+  }
 }
 ```
 
@@ -38,6 +55,28 @@ Le fichier de configuration est automatiquement créé lors du premier démarrag
 | `timeZone` | Fuseau horaire pour les horodatages | "Europe/Paris" |
 | `autoDetectDataFolder` | Activation de la détection automatique du dossier de données | true |
 | `manualDataFolderPath` | Chemin manuel vers le dossier de données (si `autoDetectDataFolder` est désactivé) | "" |
+| `maxPlayers` | Nombre maximum de joueurs à afficher sur le tableau | 100 |
+| `rowsPerColumn` | Nombre de lignes par colonne | 10 |
+| `showLastUpdate` | Afficher ou masquer la date et l'heure de dernière mise à jour | true |
+| `colors` | Dictionnaire des couleurs du tableau (format hexadécimal) | Voir exemple |
+
+### Personnalisation des couleurs
+Le tableau des scores peut être entièrement personnalisé en modifiant les couleurs suivantes :
+- `background` : Couleur de fond générale du tableau
+- `titleBackground` : Couleur de fond du titre
+- `titleText` : Couleur du texte du titre
+- `topPlayerText` : Couleur du texte pour les joueurs aux 3 premières places
+- `firstPlaceBackground` : Couleur de fond pour la première place
+- `secondPlaceBackground` : Couleur de fond pour la deuxième place
+- `thirdPlaceBackground` : Couleur de fond pour la troisième place
+- `text` : Couleur du texte pour les autres joueurs
+- `footerText` : Couleur du texte du pied de page (date de mise à jour)
+
+### Mise en page du tableau
+La mise en page du tableau est automatiquement ajustée en fonction des paramètres `maxPlayers` et `rowsPerColumn` :
+- Le nombre de colonnes est calculé automatiquement en fonction du nombre de joueurs et du nombre de lignes par colonne
+- Si vous avez beaucoup de joueurs, augmentez `rowsPerColumn` pour créer des colonnes plus hautes
+- Pour limiter le nombre de joueurs affichés, ajustez la valeur de `maxPlayers`
 
 ## 🖼️ Accès à l'image
 Pour accéder à l'image du tableau des scores :
