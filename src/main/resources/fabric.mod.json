@@ -3,13 +3,13 @@
 	"id": "cobbledex-scoreboard",
 	"version": "${version}",
 	"name": "Cobbledex Scoreboard",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Un scoreboard pour Cobblemon",
 	"authors": [
-		"Me!"
+		"Tellsanguis"
 	],
 	"contact": {
 		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"sources": "https://github.com/Tellsanguis/cobbledex_autoscoreboard"
 	},
 	"license": "CC0-1.0",
 	"icon": "assets/cobbledex-scoreboard/icon.png",
