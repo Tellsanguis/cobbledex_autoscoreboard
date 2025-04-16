@@ -1,28 +1,24 @@
-# cobbledex_autoscoreboard
-Description
+# CobbledexScoreboard
 
-CobbledexScoreboard est un mod pour Minecraft qui génère une image de tableau de scores indiquant le nombre de Pokémons capturés par chaque joueur. Il fonctionne uniquement en conjonction avec le mod Cobbledex. Ce mod s'exécute côté serveur et n'a pas besoin d'être installé sur le client.
-Fonctionnalités
+## 📋 Description
+CobbledexScoreboard est un mod Minecraft qui génère automatiquement une image du tableau des scores basée sur le nombre de Pokémon capturés par chaque joueur. Ce mod est conçu pour fonctionner exclusivement avec le mod Cobbledex, s'exécute côté serveur et ne nécessite aucune installation côté client.
 
-    Génération automatique d'une image affichant les scores des joueurs.
-    Actualisation régulière des statistiques de capture de Pokémon.
-    Accès facile à l'image via un serveur web intégré.
+## ✨ Fonctionnalités
+- Génération automatique d'une image du tableau des scores
+- Actualisation périodique des statistiques de capture
+- Interface accessible via un serveur web intégré
+- Configuration personnalisable
 
-Installation
+## 🚀 Installation
+1. Assurez-vous que le mod [Cobbledex](https://www.curseforge.com/minecraft/mc-mods/cobbledex) est installé sur votre serveur
+2. Placez le fichier `.jar` de CobbledexScoreboard dans le dossier `mods` de votre serveur
+3. Lancez ou redémarrez votre serveur pour activer le mod
 
-    Installez le mod Cobbledex sur votre serveur.
-    Placez le fichier .jar de CobbledexScoreboard dans le dossier mods de votre serveur.
-    Lancez ou redémarrez votre serveur pour activer les mods.
+## ⚙️ Configuration
+Le fichier de configuration est automatiquement créé lors du premier démarrage du serveur. Vous le trouverez dans le dossier `config` de votre serveur Minecraft sous le nom `cobbledex-scoreboard.json`.
 
-Configuration
-
-    Le fichier de configuration est créé automatiquement au premier démarrage du mod. Vous le trouverez dans le répertoire de configuration du serveur Minecraft, généralement dans le dossier config.
-    Le fichier de configuration se nomme cobbledex-scoreboard.json.
-
-Options de Configuration
-
-json
-
+### Exemple de configuration
+```json
 {
   "port": 8080,
   "updateIntervalMinutes": 5,
@@ -31,24 +27,29 @@ json
   "autoDetectDataFolder": true,
   "manualDataFolderPath": ""
 }
+```
 
-    port: Port sur lequel le serveur web écoutera. Par défaut, 8080.
-    updateIntervalMinutes: Intervalle de temps en minutes pour mettre à jour l'image du scoreboard.
-    imageTitle: Titre affiché en haut de l'image du scoreboard.
-    timeZone: Fuseau horaire utilisé pour les timestamps.
-    autoDetectDataFolder: Détecte automatiquement le dossier de données. Si false, manualDataFolderPath sera utilisé.
-    manualDataFolderPath: Chemin manuel vers le dossier de données si la détection automatique est désactivée.
+### Options disponibles
+| Option | Description | Valeur par défaut |
+|--------|-------------|-------------------|
+| `port` | Port d'écoute du serveur web | 8080 |
+| `updateIntervalMinutes` | Fréquence de mise à jour du tableau (en minutes) | 5 |
+| `imageTitle` | Titre affiché sur le tableau des scores | "Scoreboard - Pokémon Capturés" |
+| `timeZone` | Fuseau horaire pour les horodatages | "Europe/Paris" |
+| `autoDetectDataFolder` | Activation de la détection automatique du dossier de données | true |
+| `manualDataFolderPath` | Chemin manuel vers le dossier de données (si `autoDetectDataFolder` est désactivé) | "" |
 
-Accès à l'Image de Scoreboard
+## 🖼️ Accès à l'image
+Pour accéder à l'image du tableau des scores :
+- IP de connexion Minecraft : `122.244.17.217:27235`
+- URL de l'image : `http://122.244.17.217:8080/scoreboard.png`
 
-L'image générée est accessible via un serveur web intégré. Utilisez l'IP du serveur Minecraft et le port configuré pour accéder à l'image.
-Exemple
+## ⚠️ Notes importantes
+- Le port configuré doit être accessible depuis l'extérieur si vous souhaitez que l'image soit visible en dehors de votre réseau local
+- N'oubliez pas de redémarrer votre serveur après toute modification de la configuration
+- Vérifiez que votre pare-feu autorise les connexions sur le port configuré
+- Si le mod ne fonctionne pas correctement, veuillez contacter le support de votre hébergeur de serveur
 
-    IP de connexion Minecraft: 122.244.17.217:27235
-    Adresse de l'image: http://122.244.17.217:8080/scoreboard.png
-
-Notes
-
-    Assurez-vous que le port configuré est ouvert et accessible depuis l'extérieur si vous souhaitez accéder à l'image depuis une autre machine.
-    En cas de modifications dans le fichier de configuration, redémarrez le serveur pour que les changements prennent effet.
-
+## 🔄 Compatibilité
+- Version de Minecraft supportée : 1.20.1
+- Requiert le mod [Cobbledex](https://www.curseforge.com/minecraft/mc-mods/cobbledex)
