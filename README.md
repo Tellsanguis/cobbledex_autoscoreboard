@@ -79,9 +79,11 @@ La mise en page du tableau est automatiquement ajustée en fonction des paramèt
 - Pour limiter le nombre de joueurs affichés, ajustez la valeur de `maxPlayers`
 
 ## 🖼️ Accès à l'image
-Pour accéder à l'image du tableau des scores :
-- IP de connexion Minecraft : `122.244.17.217:27235`
-- URL de l'image : `http://122.244.17.217:8080/scoreboard.png`
+Exemple pour accéder à l'image du tableau des scores :
+- Si votre IP de connexion Minecraft est `122.244.17.217:27235`
+- Alors l'URL de l'image sera `http://122.244.17.217:8080/scoreboard.png`
+
+URL de l'image donc : `http://IPMINECRAFT:8080/scoreboard.png`
 
 ## ⚠️ Notes importantes
 - Le port configuré doit être accessible depuis l'extérieur si vous souhaitez que l'image soit visible en dehors de votre réseau local
