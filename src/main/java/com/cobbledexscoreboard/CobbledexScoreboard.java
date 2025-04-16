@@ -52,14 +52,28 @@ public class CobbledexScoreboard implements ModInitializer {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private MinecraftServer minecraftServer;
 
-    private static class Config {
-        int port = DEFAULT_PORT;
-        int updateIntervalMinutes = UPDATE_INTERVAL_MINUTES;
-        String imageTitle = "Scoreboard - Pokémon Capturés";
-        String timeZone = "Europe/Paris";
-        boolean autoDetectDataFolder = true;
-        String manualDataFolderPath = "";
-    }
+	private static class Config {
+		int port = DEFAULT_PORT;
+		int updateIntervalMinutes = UPDATE_INTERVAL_MINUTES;
+		String imageTitle = "Scoreboard - Pokémon Capturés";
+		String timeZone = "Europe/Paris";
+		boolean autoDetectDataFolder = true;
+		String manualDataFolderPath = "";
+		int maxPlayers = 100; 
+		int rowsPerColumn = 10;
+		boolean showLastUpdate = true; 
+		Map<String, String> colors = Map.of(
+			"background", "#141414",
+			"titleBackground", "#3232C8",
+			"titleText", "#FFFFFF",
+			"topPlayerText", "#FFFFFF",
+			"firstPlaceBackground", "#FFD700",
+			"secondPlaceBackground", "#C0C0C0",
+			"thirdPlaceBackground", "#CD7F32",
+			"text", "#FFFFFF",
+			"footerText", "#FFFF00"
+		);
+	}
 
     public CobbledexScoreboard() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json");
@@ -310,73 +324,80 @@ public class CobbledexScoreboard implements ModInitializer {
 		}
 	}
     
-    private BufferedImage generateScoreboardImage(List<PlayerScore> scores) {
-        int width = 600;
-        int height = 150 + scores.size() * 50;
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g2d = image.createGraphics();
-        
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        
-        g2d.setColor(new Color(20, 20, 20));
-        g2d.fillRect(0, 0, width, height);
-        
-        int headerHeight = 80;
-        g2d.setColor(new Color(50, 50, 200));
-        g2d.fillRect(0, 0, width, headerHeight);
-        
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("SansSerif", Font.BOLD, 28));
-        FontMetrics headerFontMetrics = g2d.getFontMetrics();
-        String title = config.imageTitle;
-        int titleWidth = headerFontMetrics.stringWidth(title);
-        g2d.drawString(title, (width - titleWidth) / 2, headerHeight / 2 + headerFontMetrics.getAscent() / 2);
-        
-        Color[] topColors = {
-            new Color(255, 215, 0),
-            new Color(192, 192, 192),
-            new Color(205, 127, 50)   
-        };
-        
-        g2d.setFont(new Font("SansSerif", Font.PLAIN, 24));
-        FontMetrics scoreFontMetrics = g2d.getFontMetrics();
-        
-        int yOffset = headerHeight + 10;
-        for (int i = 0; i < scores.size(); i++) {
-            int rank = i + 1;
-            PlayerScore playerScore = scores.get(i);
-            
-            if (rank <= 3) {
-                g2d.setColor(topColors[rank-1]);
-            } else {
-                g2d.setColor(rank % 2 == 0 ? new Color(60, 60, 60) : new Color(40, 40, 40));
-            }
-            
-            g2d.fillRect(20, yOffset - 5, width - 40, 45);
-            
-            g2d.setColor(Color.WHITE);
-            String scoreText = String.format("%d. %s: %d", rank, playerScore.getName(), playerScore.getScore());
-            g2d.drawString(scoreText, 30, yOffset + scoreFontMetrics.getAscent());
-            
-            yOffset += 50;
-        }
-        
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-        LocalDateTime now = LocalDateTime.now(ZoneId.of(config.timeZone));
-        String footerText = "Dernière mise à jour : " + formatter.format(now);
-        
-        g2d.setColor(Color.YELLOW);
-        int footerWidth = scoreFontMetrics.stringWidth(footerText);
-        int footerY = height - 20;
-        g2d.drawString(footerText, (width - footerWidth) / 2, footerY);
-        
-        g2d.setColor(Color.WHITE);
-        g2d.drawRect(0, 0, width - 1, height - 1);
-        
-        g2d.dispose();
-        return image;
-    }
+	private BufferedImage generateScoreboardImage(List<PlayerScore> scores) {
+		int maxPlayers = Math.min(config.maxPlayers, scores.size());
+		int columns = (int) Math.ceil((double) maxPlayers / config.rowsPerColumn);
+		int width = 600 * columns;
+		int height = 150 + config.rowsPerColumn * 50;
+		
+		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g2d = image.createGraphics();
+
+		Map<String, String> colors = config.colors;
+		Color backgroundColor = Color.decode(colors.get("background"));
+		Color titleBackgroundColor = Color.decode(colors.get("titleBackground"));
+		Color titleTextColor = Color.decode(colors.get("titleText"));
+		Color topPlayerTextColor = Color.decode(colors.get("topPlayerText"));
+		Color firstPlaceBackground = Color.decode(colors.get("firstPlaceBackground"));
+		Color secondPlaceBackground = Color.decode(colors.get("secondPlaceBackground"));
+		Color thirdPlaceBackground = Color.decode(colors.get("thirdPlaceBackground"));
+		Color textColor = Color.decode(colors.get("text"));
+		Color footerTextColor = Color.decode(colors.get("footerText"));
+
+		g2d.setColor(backgroundColor);
+		g2d.fillRect(0, 0, width, height);
+
+		int headerHeight = 80;
+		g2d.setColor(titleBackgroundColor);
+		g2d.fillRect(0, 0, width, headerHeight);
+
+		g2d.setColor(titleTextColor);
+		g2d.setFont(new Font("SansSerif", Font.BOLD, 28));
+		FontMetrics headerFontMetrics = g2d.getFontMetrics();
+		String title = config.imageTitle;
+		int titleWidth = headerFontMetrics.stringWidth(title);
+		g2d.drawString(title, (width - titleWidth) / 2, headerHeight / 2 + headerFontMetrics.getAscent() / 2);
+
+		g2d.setFont(new Font("SansSerif", Font.PLAIN, 24));
+		FontMetrics scoreFontMetrics = g2d.getFontMetrics();
+		int yOffset = headerHeight + 10;
+
+		for (int i = 0; i < maxPlayers; i++) {
+			int rank = i + 1;
+			PlayerScore playerScore = scores.get(i);
+
+			int column = i / config.rowsPerColumn;
+			int xOffset = column * 600;
+			int yPosition = yOffset + (i % config.rowsPerColumn) * 50;
+
+			if (rank == 1) {
+				g2d.setColor(firstPlaceBackground);
+			} else if (rank == 2) {
+				g2d.setColor(secondPlaceBackground);
+			} else if (rank == 3) {
+				g2d.setColor(thirdPlaceBackground);
+			} else {
+				g2d.setColor(backgroundColor);
+			}
+			g2d.fillRect(xOffset + 20, yPosition - 5, 560, 45);
+
+			g2d.setColor(rank <= 3 ? topPlayerTextColor : textColor);
+			String scoreText = String.format("%d. %s: %d", rank, playerScore.getName(), playerScore.getScore());
+			g2d.drawString(scoreText, xOffset + 30, yPosition + scoreFontMetrics.getAscent());
+		}
+
+		if (config.showLastUpdate) {
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+			LocalDateTime now = LocalDateTime.now(ZoneId.of(config.timeZone));
+			String footerText = "Dernière mise à jour : " + formatter.format(now);
+			g2d.setColor(footerTextColor);
+			int footerWidth = scoreFontMetrics.stringWidth(footerText);
+			g2d.drawString(footerText, (width - footerWidth) / 2, height - 20);
+		}
+
+		g2d.dispose();
+		return image;
+	}
     
     private class ScoreboardHandler implements HttpHandler {
         @Override
