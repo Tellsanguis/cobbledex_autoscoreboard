@@ -1,7 +1,7 @@
 # Scoredex
 
 ## 📋 Description
-Scoredex est un mod Minecraft qui génère automatiquement une image du tableau des scores basée sur le nombre de Pokémon capturés par chaque joueur. Ce mod est conçu pour fonctionner exclusivement avec le mod Cobbledex, s'exécute côté serveur et ne nécessite aucune installation côté client.
+Scoredex est un mod Minecraft qui génère automatiquement une image du tableau des scores basée sur le nombre de Pokémon capturés par chaque joueur. Ce mod s'exécute côté serveur et ne nécessite aucune installation côté client.
 
 ## ✨ Fonctionnalités
 - Génération automatique d'une image du tableau des scores
@@ -13,7 +13,7 @@ Scoredex est un mod Minecraft qui génère automatiquement une image du tableau 
 - Option pour masquer la date de dernière mise à jour
 
 ## 🚀 Installation
-1. Assurez-vous que le mod [Cobbledex](https://www.curseforge.com/minecraft/mc-mods/cobbledex) est installé sur votre serveur
+1. Assurez-vous que le mod Cobblemon est installé
 2. Placez le fichier `.jar` de Scoredex dans le dossier `mods` de votre serveur
 3. Lancez ou redémarrez votre serveur pour activer le mod
 
@@ -92,5 +92,5 @@ URL de l'image donc : `http://IPMINECRAFT:8080/scoreboard.png`
 - Si le mod ne fonctionne pas correctement, veuillez contacter le support de votre hébergeur de serveur
 
 ## 🔄 Compatibilité
-- Version de Minecraft supportée : 1.20.1
-- Requiert le mod [Cobbledex](https://www.curseforge.com/minecraft/mc-mods/cobbledex)
+- Version de Minecraft supportée : 1.21.1
+- Requiert le mod Cobblemon
