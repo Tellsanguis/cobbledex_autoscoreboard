@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "scoredex",
+	"version": "${version}",
+	"name": "Scoredex",
+	"description": "Un scoreboard pour Cobblemon",
+	"authors": [
+		"Tellsanguis"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/Tellsanguis/cobbledex_autoscoreboard"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/scoredex/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.scoredex.Scoredex"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
