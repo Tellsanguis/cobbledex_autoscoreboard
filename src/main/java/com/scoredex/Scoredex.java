@@ -4,14 +4,20 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonArray;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.text.Text;
 import net.minecraft.util.WorldSavePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,8 +45,8 @@ import java.util.regex.Pattern;
 import java.util.UUID;
 
 public class Scoredex implements ModInitializer {
-    public static final Logger LOGGER = LoggerFactory.getLogger("cobbledex-scoreboard");
-    private static final String MOD_ID = "cobbledex-scoreboard";
+    public static final Logger LOGGER = LoggerFactory.getLogger("scoredex");
+    private static final String MOD_ID = "scoredex";
     private static final int DEFAULT_PORT = 8080;
     private static final int UPDATE_INTERVAL_MINUTES = 5;
     private HttpServer server;
@@ -52,37 +58,42 @@ public class Scoredex implements ModInitializer {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private MinecraftServer minecraftServer;
 
-	private static class Config {
-		int port = DEFAULT_PORT;
-		int updateIntervalMinutes = UPDATE_INTERVAL_MINUTES;
-		String imageTitle = "Scoreboard - Pokémon Capturés";
-		String timeZone = "Europe/Paris";
-		boolean autoDetectDataFolder = true;
-		String manualDataFolderPath = "";
-		int maxPlayers = 100; 
-		int rowsPerColumn = 10;
-		boolean showLastUpdate = true; 
-		Map<String, String> colors = Map.of(
-			"background", "#141414",
-			"titleBackground", "#3232C8",
-			"titleText", "#FFFFFF",
-			"topPlayerText", "#FFFFFF",
-			"firstPlaceBackground", "#FFD700",
-			"secondPlaceBackground", "#C0C0C0",
-			"thirdPlaceBackground", "#CD7F32",
-			"text", "#FFFFFF",
-			"footerText", "#FFFF00"
-		);
-	}
+    private static class Config {
+        int port = DEFAULT_PORT;
+        int updateIntervalMinutes = UPDATE_INTERVAL_MINUTES;
+        String imageTitle = "Scoreboard - Pokémon Capturés";
+        String timeZone = "Europe/Paris";
+        boolean autoDetectDataFolder = true;
+        String manualDataFolderPath = "";
+        int maxPlayers = 100; 
+        int rowsPerColumn = 10;
+        boolean showLastUpdate = true;
+        String lastUpdateText = "Dernière mise à jour :";
+        Map<String, String> colors = Map.of(
+            "background", "#141414",
+            "titleBackground", "#3232C8",
+            "titleText", "#FFFFFF",
+            "topPlayerText", "#FFFFFF",
+            "firstPlaceBackground", "#FFD700",
+            "secondPlaceBackground", "#C0C0C0",
+            "thirdPlaceBackground", "#CD7F32",
+            "text", "#FFFFFF",
+            "footerText", "#FFFF00"
+        );
+    }
 
     public Scoredex() {
-        configPath = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json");
+        configPath = FabricLoader.getInstance().getConfigDir().resolve("scoredex.json");
         loadConfig();
     }
 
     @Override
     public void onInitialize() {
         LOGGER.info("Initialisation du mod Scoredex...");
+
+        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> {
+            registerCommands(dispatcher);
+        });
         
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             LOGGER.info("Serveur Minecraft démarré - Initialisation du scoreboard...");
@@ -103,8 +114,26 @@ public class Scoredex implements ModInitializer {
             stopWebServer();
             scheduler.shutdown();
         });
-        
+
         LOGGER.info("Scoredex initialisé avec succès ! Serveur web sera disponible sur le port {}", config.port);
+    }
+
+    private void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
+        dispatcher.register(CommandManager.literal("reloadscoredex")
+                .requires(source -> source.hasPermissionLevel(2))
+                .executes(this::reloadConfigCommand));
+    }
+    
+    private int reloadConfigCommand(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+        try {
+            loadConfig();
+            context.getSource().sendFeedback(() -> Text.of("La configuration Scoredex a été rechargée avec succès."), true);
+            updateScoreboard();
+        } catch (Exception e) {
+            context.getSource().sendError(Text.of("Erreur lors du rechargement de la configuration : " + e.getMessage()));
+            return 0;
+        }
+        return 1;
     }
     
     private void loadConfig() {
@@ -153,52 +182,52 @@ public class Scoredex implements ModInitializer {
         }
     }
     
-	private Path findCobblemonDataFolder() {
-		if (!config.autoDetectDataFolder && !config.manualDataFolderPath.isEmpty()) {
-			Path manualPath = Paths.get(config.manualDataFolderPath);
-			if (Files.exists(manualPath)) {
-				return manualPath;
-			} else {
-				LOGGER.warn("Le chemin manuel spécifié n'existe pas: {}", config.manualDataFolderPath);
-			}
-		}
+    private Path findCobblemonDataFolder() {
+        if (!config.autoDetectDataFolder && !config.manualDataFolderPath.isEmpty()) {
+            Path manualPath = Paths.get(config.manualDataFolderPath);
+            if (Files.exists(manualPath)) {
+                return manualPath;
+            } else {
+                LOGGER.warn("Le chemin manuel spécifié n'existe pas: {}", config.manualDataFolderPath);
+            }
+        }
 
-		try {
-			if (minecraftServer != null) {
-				Path worldPath = minecraftServer.getSavePath(WorldSavePath.ROOT).toAbsolutePath();
-				String worldPathString = worldPath.toString().replaceAll("\\\\.$", "");
-				LOGGER.info("Chemin du monde Minecraft (corrigé): {}", worldPathString);
-				
-				worldPath = Paths.get(worldPathString);
+        try {
+            if (minecraftServer != null) {
+                Path worldPath = minecraftServer.getSavePath(WorldSavePath.ROOT).toAbsolutePath();
+                String worldPathString = worldPath.toString().replaceAll("\\\\.$", "");
+                LOGGER.info("Chemin du monde Minecraft (corrigé): {}", worldPathString);
+                
+                worldPath = Paths.get(worldPathString);
 
-				Path cobblemonPath = worldPath.resolve("cobblemonplayerdata");
-				if (Files.exists(cobblemonPath) && Files.isDirectory(cobblemonPath)) {
-					LOGGER.info("Dossier de données Cobblemon trouvé: {}", cobblemonPath);
-					return cobblemonPath;
-				}
+                Path cobblemonPath = worldPath.resolve("cobblemonplayerdata");
+                if (Files.exists(cobblemonPath) && Files.isDirectory(cobblemonPath)) {
+                    LOGGER.info("Dossier de données Cobblemon trouvé: {}", cobblemonPath);
+                    return cobblemonPath;
+                }
 
-				try {
-					Optional<Path> foundPath = Files.walk(worldPath, 3)
-						.filter(p -> p.getFileName().toString().equals("cobblemonplayerdata"))
-						.filter(Files::isDirectory)
-						.findFirst();
+                try {
+                    Optional<Path> foundPath = Files.walk(worldPath, 3)
+                        .filter(p -> p.getFileName().toString().equals("cobblemonplayerdata"))
+                        .filter(Files::isDirectory)
+                        .findFirst();
 
-					if (foundPath.isPresent()) {
-						LOGGER.info("Dossier de données Cobblemon trouvé: {}", foundPath.get());
-						return foundPath.get();
-					}
-				} catch (IOException e) {
-					LOGGER.error("Erreur lors de la recherche du dossier cobblemonplayerdata", e);
-				}
-			}
-		} catch (Exception e) {
-			LOGGER.error("Erreur lors de la détection du dossier de données", e);
-		}
+                    if (foundPath.isPresent()) {
+                        LOGGER.info("Dossier de données Cobblemon trouvé: {}", foundPath.get());
+                        return foundPath.get();
+                    }
+                } catch (IOException e) {
+                    LOGGER.error("Erreur lors de la recherche du dossier cobblemonplayerdata", e);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Erreur lors de la détection du dossier de données", e);
+        }
 
-		LOGGER.warn("Impossible de trouver le dossier cobblemonplayerdata automatiquement. " +
-				   "Veuillez spécifier le chemin manuellement dans le fichier de configuration.");
-		return null;
-	}
+        LOGGER.warn("Impossible de trouver le dossier cobblemonplayerdata automatiquement. " +
+                   "Veuillez spécifier le chemin manuellement dans le fichier de configuration.");
+        return null;
+    }
 
     private void updateScoreboard() {
         LOGGER.info("Mise à jour du scoreboard...");
@@ -220,180 +249,180 @@ public class Scoredex implements ModInitializer {
         }
     }
     
-	private List<PlayerScore> collectPlayerScores(Path dataFolderPath) throws IOException {
-		List<PlayerScore> scores = new ArrayList<>();
-		Files.walk(dataFolderPath)
-			.filter(path -> path.toString().endsWith(".json"))
-			.forEach(path -> {
-				try {
-					LOGGER.info("Lecture du fichier: " + path);
-					JsonObject data = JsonParser.parseReader(new FileReader(path.toFile())).getAsJsonObject();
-					if (data.has("uuid")) {
-						String uuid = data.get("uuid").getAsString();
-						String playerName = getPlayerName(uuid);
-						if (playerName != null) {
-							JsonObject advancementData = data.getAsJsonObject("advancementData");
-							if (advancementData != null && advancementData.has("totalCaptureCount")) {
-								int capturedCount = advancementData.get("totalCaptureCount").getAsInt();
-								scores.add(new PlayerScore(playerName, capturedCount));
-							}
-						}
-					}
-				} catch (Exception e) {
-					LOGGER.error("Erreur lors de la lecture du fichier {}", path, e);
-				}
-			});
-		return scores;
-	}
+    private List<PlayerScore> collectPlayerScores(Path dataFolderPath) throws IOException {
+        List<PlayerScore> scores = new ArrayList<>();
+        Files.walk(dataFolderPath)
+            .filter(path -> path.toString().endsWith(".json"))
+            .forEach(path -> {
+                try {
+                    LOGGER.info("Lecture du fichier: " + path);
+                    JsonObject data = JsonParser.parseReader(new FileReader(path.toFile())).getAsJsonObject();
+                    if (data.has("uuid")) {
+                        String uuid = data.get("uuid").getAsString();
+                        String playerName = getPlayerName(uuid);
+                        if (playerName != null) {
+                            JsonObject advancementData = data.getAsJsonObject("advancementData");
+                            if (advancementData != null && advancementData.has("totalCaptureCount")) {
+                                int capturedCount = advancementData.get("totalCaptureCount").getAsInt();
+                                scores.add(new PlayerScore(playerName, capturedCount));
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Erreur lors de la lecture du fichier {}", path, e);
+                }
+            });
+        return scores;
+    }
     
-	private String getPlayerName(String uuid) {
-		if (uuidToNameCache.containsKey(uuid)) {
-			return uuidToNameCache.get(uuid);
-		}
-		
-		if (minecraftServer != null) {
-			Optional<String> playerName = minecraftServer.getPlayerManager().getPlayerList().stream()
-				.filter(player -> player.getUuidAsString().equals(uuid))
-				.map(player -> player.getName().getString())
-				.findFirst();
-			
-			if (playerName.isPresent()) {
-				uuidToNameCache.put(uuid, playerName.get());
-				return playerName.get();
-			}
-			
-			try {
-				Optional<String> cachedName = minecraftServer.getUserCache().getByUuid(UUID.fromString(uuid))
-					.map(gameProfile -> gameProfile.getName());
-				
-				if (cachedName.isPresent()) {
-					uuidToNameCache.put(uuid, cachedName.get());
-					return cachedName.get();
-				}
-			} catch (Exception e) {
-				LOGGER.warn("Erreur lors de la récupération du nom depuis le UserCache pour l'UUID {}", uuid, e);
-			}
-		}
-		
-		String uuidWithoutDashes = uuid.replace("-", "");
-		String apiUrl = "https://sessionserver.mojang.com/session/minecraft/profile/" + uuidWithoutDashes;
-		
-		try {
-			URL url = new URL(apiUrl);
-			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-			connection.setRequestMethod("GET");
-			
-			if (connection.getResponseCode() == 200) {
-				try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-					JsonObject response = JsonParser.parseReader(in).getAsJsonObject();
-					if (response.has("name")) {
-						String name = response.get("name").getAsString();
-						uuidToNameCache.put(uuid, name);
-						return name;
-					}
-				}
-			}
-		} catch (Exception e) {
-			LOGGER.error("Erreur lors de la récupération du nom pour l'UUID {}", uuid, e);
-		}
-		
-		return null;
-	}
+    private String getPlayerName(String uuid) {
+        if (uuidToNameCache.containsKey(uuid)) {
+            return uuidToNameCache.get(uuid);
+        }
+        
+        if (minecraftServer != null) {
+            Optional<String> playerName = minecraftServer.getPlayerManager().getPlayerList().stream()
+                .filter(player -> player.getUuidAsString().equals(uuid))
+                .map(player -> player.getName().getString())
+                .findFirst();
+            
+            if (playerName.isPresent()) {
+                uuidToNameCache.put(uuid, playerName.get());
+                return playerName.get();
+            }
+            
+            try {
+                Optional<String> cachedName = minecraftServer.getUserCache().getByUuid(UUID.fromString(uuid))
+                    .map(gameProfile -> gameProfile.getName());
+                
+                if (cachedName.isPresent()) {
+                    uuidToNameCache.put(uuid, cachedName.get());
+                    return cachedName.get();
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Erreur lors de la récupération du nom depuis le UserCache pour l'UUID {}", uuid, e);
+            }
+        }
+        
+        String uuidWithoutDashes = uuid.replace("-", "");
+        String apiUrl = "https://sessionserver.mojang.com/session/minecraft/profile/" + uuidWithoutDashes;
+        
+        try {
+            URL url = new URL(apiUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            
+            if (connection.getResponseCode() == 200) {
+                try (BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                    JsonObject response = JsonParser.parseReader(in).getAsJsonObject();
+                    if (response.has("name")) {
+                        String name = response.get("name").getAsString();
+                        uuidToNameCache.put(uuid, name);
+                        return name;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Erreur lors de la récupération du nom pour l'UUID {}", uuid, e);
+        }
+        
+        return null;
+    }
     
-	private int countRewards(JsonObject data) {
-		try {
-			if (data.has("party") && data.get("party").isJsonObject()) {
-				JsonObject party = data.getAsJsonObject("party");
-				
-				if (party.has("completedQuests") && party.get("completedQuests").isJsonObject()) {
-					JsonObject completedQuests = party.getAsJsonObject("completedQuests");
-					
-					if (completedQuests.has("Cobbledex_RewardHistory") && completedQuests.get("Cobbledex_RewardHistory").isJsonArray()) {
-						return completedQuests.getAsJsonArray("Cobbledex_RewardHistory").size();
-					}
-				}
-			}
-			return 0;
-		} catch (Exception e) {
-			LOGGER.error("Erreur lors du comptage des récompenses", e);
-			return 0;
-		}
-	}
+    private int countRewards(JsonObject data) {
+        try {
+            if (data.has("party") && data.get("party").isJsonObject()) {
+                JsonObject party = data.getAsJsonObject("party");
+                
+                if (party.has("completedQuests") && party.get("completedQuests").isJsonObject()) {
+                    JsonObject completedQuests = party.getAsJsonObject("completedQuests");
+                    
+                    if (completedQuests.has("Cobbledex_RewardHistory") && completedQuests.get("Cobbledex_RewardHistory").isJsonArray()) {
+                        return completedQuests.getAsJsonArray("Cobbledex_RewardHistory").size();
+                    }
+                }
+            }
+            return 0;
+        } catch (Exception e) {
+            LOGGER.error("Erreur lors du comptage des récompenses", e);
+            return 0;
+        }
+    }
     
-	private BufferedImage generateScoreboardImage(List<PlayerScore> scores) {
-		int maxPlayers = Math.min(config.maxPlayers, scores.size());
-		int columns = (int) Math.ceil((double) maxPlayers / config.rowsPerColumn);
-		int width = 600 * columns;
-		int height = 150 + config.rowsPerColumn * 50;
-		
-		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		Graphics2D g2d = image.createGraphics();
+    private BufferedImage generateScoreboardImage(List<PlayerScore> scores) {
+        int maxPlayers = Math.min(config.maxPlayers, scores.size());
+        int columns = (int) Math.ceil((double) maxPlayers / config.rowsPerColumn);
+        int width = 600 * columns;
+        int height = 150 + config.rowsPerColumn * 50;
+        
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = image.createGraphics();
 
-		Map<String, String> colors = config.colors;
-		Color backgroundColor = Color.decode(colors.get("background"));
-		Color titleBackgroundColor = Color.decode(colors.get("titleBackground"));
-		Color titleTextColor = Color.decode(colors.get("titleText"));
-		Color topPlayerTextColor = Color.decode(colors.get("topPlayerText"));
-		Color firstPlaceBackground = Color.decode(colors.get("firstPlaceBackground"));
-		Color secondPlaceBackground = Color.decode(colors.get("secondPlaceBackground"));
-		Color thirdPlaceBackground = Color.decode(colors.get("thirdPlaceBackground"));
-		Color textColor = Color.decode(colors.get("text"));
-		Color footerTextColor = Color.decode(colors.get("footerText"));
+        Map<String, String> colors = config.colors;
+        Color backgroundColor = Color.decode(colors.get("background"));
+        Color titleBackgroundColor = Color.decode(colors.get("titleBackground"));
+        Color titleTextColor = Color.decode(colors.get("titleText"));
+        Color topPlayerTextColor = Color.decode(colors.get("topPlayerText"));
+        Color firstPlaceBackground = Color.decode(colors.get("firstPlaceBackground"));
+        Color secondPlaceBackground = Color.decode(colors.get("secondPlaceBackground"));
+        Color thirdPlaceBackground = Color.decode(colors.get("thirdPlaceBackground"));
+        Color textColor = Color.decode(colors.get("text"));
+        Color footerTextColor = Color.decode(colors.get("footerText"));
 
-		g2d.setColor(backgroundColor);
-		g2d.fillRect(0, 0, width, height);
+        g2d.setColor(backgroundColor);
+        g2d.fillRect(0, 0, width, height);
 
-		int headerHeight = 80;
-		g2d.setColor(titleBackgroundColor);
-		g2d.fillRect(0, 0, width, headerHeight);
+        int headerHeight = 80;
+        g2d.setColor(titleBackgroundColor);
+        g2d.fillRect(0, 0, width, headerHeight);
 
-		g2d.setColor(titleTextColor);
-		g2d.setFont(new Font("SansSerif", Font.BOLD, 28));
-		FontMetrics headerFontMetrics = g2d.getFontMetrics();
-		String title = config.imageTitle;
-		int titleWidth = headerFontMetrics.stringWidth(title);
-		g2d.drawString(title, (width - titleWidth) / 2, headerHeight / 2 + headerFontMetrics.getAscent() / 2);
+        g2d.setColor(titleTextColor);
+        g2d.setFont(new Font("SansSerif", Font.BOLD, 28));
+        FontMetrics headerFontMetrics = g2d.getFontMetrics();
+        String title = config.imageTitle;
+        int titleWidth = headerFontMetrics.stringWidth(title);
+        g2d.drawString(title, (width - titleWidth) / 2, headerHeight / 2 + headerFontMetrics.getAscent() / 2);
 
-		g2d.setFont(new Font("SansSerif", Font.PLAIN, 24));
-		FontMetrics scoreFontMetrics = g2d.getFontMetrics();
-		int yOffset = headerHeight + 10;
+        g2d.setFont(new Font("SansSerif", Font.PLAIN, 24));
+        FontMetrics scoreFontMetrics = g2d.getFontMetrics();
+        int yOffset = headerHeight + 10;
 
-		for (int i = 0; i < maxPlayers; i++) {
-			int rank = i + 1;
-			PlayerScore playerScore = scores.get(i);
+        for (int i = 0; i < maxPlayers; i++) {
+            int rank = i + 1;
+            PlayerScore playerScore = scores.get(i);
 
-			int column = i / config.rowsPerColumn;
-			int xOffset = column * 600;
-			int yPosition = yOffset + (i % config.rowsPerColumn) * 50;
+            int column = i / config.rowsPerColumn;
+            int xOffset = column * 600;
+            int yPosition = yOffset + (i % config.rowsPerColumn) * 50;
 
-			if (rank == 1) {
-				g2d.setColor(firstPlaceBackground);
-			} else if (rank == 2) {
-				g2d.setColor(secondPlaceBackground);
-			} else if (rank == 3) {
-				g2d.setColor(thirdPlaceBackground);
-			} else {
-				g2d.setColor(backgroundColor);
-			}
-			g2d.fillRect(xOffset + 20, yPosition - 5, 560, 45);
+            if (rank == 1) {
+                g2d.setColor(firstPlaceBackground);
+            } else if (rank == 2) {
+                g2d.setColor(secondPlaceBackground);
+            } else if (rank == 3) {
+                g2d.setColor(thirdPlaceBackground);
+            } else {
+                g2d.setColor(backgroundColor);
+            }
+            g2d.fillRect(xOffset + 20, yPosition - 5, 560, 45);
 
-			g2d.setColor(rank <= 3 ? topPlayerTextColor : textColor);
-			String scoreText = String.format("%d. %s: %d", rank, playerScore.getName(), playerScore.getScore());
-			g2d.drawString(scoreText, xOffset + 30, yPosition + scoreFontMetrics.getAscent());
-		}
+            g2d.setColor(rank <= 3 ? topPlayerTextColor : textColor);
+            String scoreText = String.format("%d. %s: %d", rank, playerScore.getName(), playerScore.getScore());
+            g2d.drawString(scoreText, xOffset + 30, yPosition + scoreFontMetrics.getAscent());
+        }
 
-		if (config.showLastUpdate) {
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-			LocalDateTime now = LocalDateTime.now(ZoneId.of(config.timeZone));
-			String footerText = "Dernière mise à jour : " + formatter.format(now);
-			g2d.setColor(footerTextColor);
-			int footerWidth = scoreFontMetrics.stringWidth(footerText);
-			g2d.drawString(footerText, (width - footerWidth) / 2, height - 20);
-		}
+        if (config.showLastUpdate) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            LocalDateTime now = LocalDateTime.now(ZoneId.of(config.timeZone));
+            String footerText = config.lastUpdateText + " " + formatter.format(now);
+            g2d.setColor(footerTextColor);
+            int footerWidth = scoreFontMetrics.stringWidth(footerText);
+            g2d.drawString(footerText, (width - footerWidth) / 2, height - 20);
+        }
 
-		g2d.dispose();
-		return image;
-	}
+        g2d.dispose();
+        return image;
+    }
     
     private class ScoreboardHandler implements HttpHandler {
         @Override
